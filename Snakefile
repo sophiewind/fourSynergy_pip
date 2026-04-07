@@ -1,4 +1,5 @@
 from snakemake.utils import min_version
+
 min_version("7.0")
 
 include_shiny = '--no-shiny' not in sys.argv
@@ -10,8 +11,16 @@ outputdir = "results/" + config['author']
 diff = False
 
 conditions = [config['condition'], config['control']]
+
+
 conditionsclean = [x for x in conditions if x and x.strip()]
-print(conditionsclean)
+
+REPS = list(map(str, config["conditionRep"]))  # macht sicher Strings
+SAMPLES = [f"{c}_{r}" for c in conditionsclean for r in REPS]
+
+print(SAMPLES)
+
+
 
 rule all:
     input:
@@ -19,9 +28,9 @@ rule all:
         outputdir + '/r3cseq/r3cseq_w_done.txt',
         outputdir + '/peakC/peakC_FDR_done.txt',
         outputdir + "/multiqc_report.html",
-        outputdir + "/fourSynergy_postprocessing.html"
-
-
+        expand('results/{author}/fourSig/{cond}_{rep}_fourSigit_finished.txt', cond=conditionsclean, rep=config['conditionRep'], author=config['author']),
+        outputdir + "/fourSynergy_postprocessing.html",
+        outputdir + "/shiny_in/.done"
 
 
 include: "rules/bam_align.smk"
