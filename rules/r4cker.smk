@@ -1,10 +1,7 @@
 rule r4cker:
     input:
         bams = expand('results/{author}/alignment/{cond}_{rep}_sorted.bam', cond=conditionsclean, rep=config['conditionRep'], author=config['author']),
-        viewpoint = inputdir + '/viewpoint.bed'
     output:
-        #outputdir + '/r4cker/out/{sample}_nearbait_highinter.bed',
-        #outputdir + '/alignment/{sample}_sorted.bedGraph'
         outputdir + '/r4cker/r4cker_done.txt'
     params:
         author = config['author'],
