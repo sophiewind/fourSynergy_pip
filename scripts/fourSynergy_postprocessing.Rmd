@@ -1,0 +1,779 @@
+---
+title: "fourSynergy - Postprocessing"
+format: 
+    html: 
+        embed-resources: true
+params:
+    config: "x"
+    vp: "y"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen=15)
+
+library(GenomicRanges)
+library(ggplot2)
+library(dplyr)
+library(gridExtra)
+library(forcats)
+library(stringr)
+library(reshape2)
+library(slider)
+library(tidyr)
+library(yaml)
+```
+
+```{r config, include=FALSE}
+# config <- read_yaml('../Datasets/Geeven_sox////info.yaml')
+# config <- read_yaml('../Datasets/Modrek_SOX2////info.yaml')
+#config <- read_yaml('../Datasets/Takeda_promoter_siGATA2/////info.yaml')
+
+config <- read_yaml(file = params$config)
+```
+
+```{r, viewpoint, include=FALSE}
+#vi.in <- '../Datasets/Geeven_sox/viewpoint.bed'
+#vi.in <- '../Datasets/Modrek_SOX2/viewpoint.bed'
+#vi.in <- '../Datasets//Takeda_promoter_siGATA2/viewpoint.bed'
+
+# vi <- read.csv(params$vp, sep = '\t')
+# 
+# 
+# vi <-  vi[vi$name != 'VP',]
+# vi$name <- factor('known')
+# colnames(vi) <- c('seqnames', 'start', 'end', 'nReads', 'tool')
+# vi$tool <- factor('known')
+# vi$seqnames <- as.factor(vi$seqnames)
+
+vp <- data.frame(seqnames = paste0('chr', config$VPchr),
+                 start = config$VPpos-1000,
+                 end = config$VPpos+1000, 
+                 tool = factor('VP'))
+
+message(getwd())
+message(config)
+res.path <- paste0('../results/', config$author, '/')
+```
+
+```{r, include=FALSE}
+create_dir_if_not_exist <- function(dir_path) {
+    if (!file.exists(dir_path)) {
+        message('Builing dirs')
+        dir.create(dir_path)
+    }
+}
+
+create_dir_if_not_exist(paste0(res.path, 'sia'))
+```
+
+```{r, include=FALSE}
+source('./ensemble_functions.R')
+
+addStartToPeakC <- function(peakc.obj, basic4c.vfl, sample.name){
+    sample <- deparse(substitute(peakc.obj))
+    peak.df <- data.frame(seqnames = character(), start = integer(), 
+                          end = integer(),
+                          nReads = integer(), tool = factor())
+    
+    if (!is.null(peakc.obj$peak) & length(peakc.obj$peak) > 0){
+        peaks <- peakc.obj$peak %>% 
+            data.frame(seqnames = paste0('chr', config$VPchr), start = ., end = .) %>% 
+            makeGRangesFromDataFrame()
+        ov <- findOverlaps(peaks, basic4c.vfl)
+        hit.frag <- unique(basic4c.vfl[subjectHits(ov),])
+        
+        
+        # Bring peakC to strandard format
+        if (length(hit.frag) > 0){
+            print('rows in peakc')
+            hit.frag$tool <- sample.name
+            
+            peak.df <- hit.frag %>%
+                as.data.frame() %>% 
+                dplyr::select(seqnames, start, end, tool) %>%
+                mutate(nReads = -1 )
+        }
+        return(peak.df) 
+    }
+}
+
+addStartToPeakCSig <- function(peakc.collect, basic4c.vfl, sample.name){
+    #sample <- deparse(substitute(peakc.collect))
+    # Check if hits fragment
+    peaks <- peakc.collect$dbr %>%  
+        mutate(seqnames = paste0('chr', config$VPchr), start = end) %>%  
+        makeGRangesFromDataFrame(keep.extra.columns = TRUE)
+    ov <- findOverlaps(peaks, basic4c.vfl)
+    hit.frag <- basic4c.vfl[subjectHits(ov),]
+    hit.frag$significance <- mcols(peaks[queryHits(ov),])$significance
+    
+    # remove double entries
+    hit.frag <- unique(hit.frag)
+    peak.df <- as.data.frame(hit.frag)
+    
+    # Bring peakC to strandard format
+    if (nrow(peak.df) > 0){
+        peak.df <- peak.df %>% 
+            mutate(nReads = -1) %>% 
+            mutate(tool = sample.name) %>%
+            dplyr::select(seqnames, start, end, nReads, tool, significance)
+    }
+    return(peak.df)
+}
+```
+
+# Load ouput data from
+
+-   r3C seq
+-   peakC
+-   fourSig
+-   r4cker
+
+```{r data, echo=FALSE}
+# Read r3C seq
+if (!is.null(config$control)){
+    tryCatch({
+        try(r3c_1_obj <- readRDS(paste0(res.path, 'r3cseq/r3Cseq_obj.rds')))
+        r3c_2000_obj <- readRDS(paste0(res.path, 'r3cseq/r3Cseq_2000_obj.rds'))
+        r3c_5000_obj <- readRDS(paste0(res.path, 'r3cseq/r3Cseq_5000_obj.rds'))
+        r3c_10000_obj <- readRDS(paste0(res.path, 'r3cseq/r3Cseq_10000_obj.rds'))},
+        error = function(e){
+            message('Found no r3c rds files!')
+        })
+} else {
+    tryCatch({
+        for (f in list.files(paste0(res.path, 'r3cseq'), '*.rds', full.names = T)) {
+            sample <- basename(f) %>% 
+                str_extract(., '(.*)(_sorted_r3Cseq_)(\\d+)(_obj.rds)', c(3, 1))
+            assign(paste0('rds.r3c_', sample[1], '.', sample[2]), readRDS(f))
+        }
+    }, error = function(e){
+        message('Found no r3c rds files!')
+    })
+}
+
+# Read fourSig
+tryCatch({
+    for (w in list.files(paste0(res.path, 'fourSig/'),
+                         '*_w_fourSigit_\\d+.rds',
+                         full.names = T)) {
+        window <- str_extract(w, "(?<=fourSigit_)\\d+")
+        sample <- gsub('_w_fourSigit_\\d+.rds', '', basename(w))
+        assign(paste0('rds.foursigit_', window, '.', sample), 
+               readRDS(gsub('_w', '', w)))
+    }
+}, error = function(e){
+    message('Found no fourSig rds files!')
+})
+
+
+# Read peakC
+tryCatch({
+    files <- list.files(paste0(res.path, 'peakC'), 
+                        '(0.01|0.05|0.1)\\.rds', full.names = T)
+    for (f in files) {  
+        sample <- gsub('.rds', '', basename(f)) %>%  
+            gsub('(peakC_\\d+)_', '\\1.', .) %>%
+            gsub("_(?=[^_]*$)", ".", ., perl = TRUE) %>% gsub('peakC', 'peakc', .)
+        assign(paste0('rds.', sample), readRDS(f))
+        
+    }
+}, error = function(e){
+    message('Found no peakC rds files!')
+})
+
+```
+
+# Read Virtual fragment library (vfl) (Basic4Cseq)
+
+```{r read.vfl, echo=FALSE}
+paste0('../results/vfl/', config$organism, '_', 
+                              config$RESeq[1], '_', config$RESeq[2], '_',
+                              config$readLength, '_VFL.csv')
+# Read Basic data
+basic.frag <- read.csv(paste0('../results/vfl/', config$organism, '_',
+                              config$RESeq[1], '_', config$RESeq[2], '_',
+                              config$readLength, '_VFL.csv'), sep = '\t')
+
+basic.frag.chr <- basic.frag[basic.frag$chromosomeName ==
+                                 paste0('chr', config$VPchr),]
+colnames(basic.frag.chr)[1] <- 'seqnames'
+basic.frag.chr.gr <- makeGRangesFromDataFrame(basic.frag.chr)
+
+# Map VP on fragments
+overlap <- findOverlaps(makeGRangesFromDataFrame(vp), basic.frag.chr.gr,
+                        type = 'any')
+
+# Get the indices of the fragments hit by at least one peak
+fragment_hits <- subjectHits(overlap)
+
+# Extract the fragments hit
+vp.gr <- basic.frag.chr.gr[fragment_hits]
+```
+
+Read Basic4Cseq files
+
+```{r basicvis, echo=FALSE}
+basic.frag <- read.csv(list.files(paste0(res.path, 'basic4cseq/'), 
+                                  '*_frags.csv', full.names = T)[1], sep = '\t')
+print(list.files(paste0(res.path, 'basic4cseq/'), 
+                 '*_frags.csv', full.names = T)[1])
+colnames(basic.frag)[4] <- paste0('reads_', 
+                                  gsub('_frags.csv', '', list.files(paste0(
+                                      res.path, 'basic4cseq/'), '*_frags.csv')[1]))
+for (b in list.files(paste0(res.path, 'basic4cseq/'), 
+                     '*_frags.csv', full.names = T)[-1]){
+    sample <- gsub('_frags.csv', '', basename(b))
+    basic.frag.tmp <- read.csv(b, sep = '\t')
+    colnames(basic.frag.tmp)[4] <- paste0('reads_', sample)
+    basic.frag <- merge(basic.frag, basic.frag.tmp, all = T)
+}
+
+ctrl <- basic.frag[grep(pattern = config$condition, colnames(basic.frag))]
+basic.frag <- basic.frag %>%
+    mutate(condition = rowMeans(dplyr::select(., contains(match = paste0('reads_',config$condition), ignore.case = FALSE)))) %>%
+    mutate(control = rowMeans(dplyr::select(., contains(match = paste0('reads_',config$control), ignore.case = FALSE)))) 
+
+# Create dummy.gr to use this if tool called no sias
+dummy.gr <- makeGRangesFromDataFrame(data.frame(
+    seqnames=paste0('chr', config$VPchr),start=0,end=0, nReads = -1, 
+    significance = 0), keep.extra.columns = T)
+```
+
+Define nearbait area
+
+```{r nearbait, echo=FALSE}
+overlap <- findOverlaps(vp.gr, basic.frag.chr.gr, type = 'any')
+
+# Get the indices of the fragments hit by at least one peak
+vp.index <- subjectHits(overlap)
+
+# Define area of interest
+# Make sure that indices are available
+lower.bound <- ifelse((vp.index[1] -1500) > 0, (vp.index[1] -1500), 0)
+upper.bound <- ifelse((vp.index[length(vp.index)] + 1500 - length(vp.index)) <=
+                          length(basic.frag.chr.gr), 
+                      (vp.index[length(vp.index)] + 1500 - length(vp.index)), 
+                      length(basic.frag.chr.gr))
+nearbait.area <- basic.frag.chr.gr[lower.bound:upper.bound,]
+
+if (vp.index[1] -1500 < 0){
+    fill <- rep(dummy.gr,abs(vp.index[1] -1500 -1)) 
+    nearbait.area.out <- c(fill, nearbait.area)
+    names(nearbait.area.out) <- seq(1, length(nearbait.area.out))
+} else {
+    nearbait.area.out <- nearbait.area
+}
+
+nearbait.area.out %>% 
+    as.data.frame() %>%
+    dplyr::select(seqnames, start, end) %>%
+    write.table(.,paste0(res.path, 'nearbait_area.bed'),  quote = F, 
+                row.names = F, sep = '\t')
+```
+
+# Transform data into sia format
+
+```{r, echo=FALSE}
+# Create list where sia granges are stored
+list.sia.all <- GRangesList()
+list.sia.all[['VP']] <- vp.gr
+list.sia.all <- list.sia.all[!grepl("seqinfo", names(list.sia.all))]
+```
+
+## r3Cseq
+
+```{r r3cseq, echo=FALSE}
+tryCatch({
+    # If Control is involved replicates are collapsed in r3c object
+    if (!is.null(config$control)){
+        for (r3c in c('r3c_2000_obj', 'r3c_5000_obj', 'r3c_10000_obj')){
+            # Check if r3c objcet was written
+            if (exists(r3c)){
+                
+                # Iterate over different window sizes
+                for (f in setdiff(ls(pattern = '^r3c_'), lsf.str())){
+                    # gr <- get(paste0('r3c_', n, '_obj'))@expInteractionRegions
+                    # Iterate over condition and control
+                    for (cond in c('condition', 'control')){
+                        gr <- slot(get(f), ifelse(cond == 'condition', 
+                                                  'expInteractionRegions', 
+                                                  'contrInteractionRegions'))
+                        
+                        # Check if there are peaks if not insert dummy.gr
+                        if (length(gr) == 0) gr <- dummy.gr
+                        
+                        # Extract significant interactions on VP chromosome
+                        mcols(gr)$significance <- 0
+                        gr$significance[gr$q.value < 0.1] <- 1  # TODO change in r3c
+                        gr$significance[gr$q.value < 0.05] <- 2
+                        gr$significance[gr$q.value < 0.01] <- 3
+                        
+                        gr <- gr[seqnames(gr) == paste0('chr', config$VPchr) & 
+                                     gr$p.value < 0.05]  # TODO change later
+                        
+                        # remove 0 significance
+                        gr <- gr[gr$significance > 0]
+                        
+                        # Map on fragments (is already fragment based but on r3c fragments) 
+                        overlap <- findOverlaps(gr, basic.frag.chr.gr, type = 'any')
+                        
+                        # Get the indices of the fragments hit by at least one peak
+                        fragment_hits <- subjectHits(overlap)
+                        
+                        # Extract the fragments hit
+                        hit_fragments <- basic.frag.chr.gr[fragment_hits]
+                        
+                        if (length(hit_fragments) == 0){
+                            hit_fragments <- dummy.gr
+                            hit_fragments$tool <- paste0('rep.r3c_',
+                                                         str_split_fixed(f, '_', 3)[2], '.', 
+                                                         config[cond])
+                        } else {
+                            hit_fragments$tool <- paste0('rep.r3c_', 
+                                                         str_split_fixed(f, '_', 3)[2], '.', 
+                                                         config[cond])
+                            hit_fragments$significance <- gr[queryHits(overlap)]$significance
+                            hit_fragments$q.value <- gr[queryHits(overlap)]$q.value
+                            
+                        }
+                        list.sia.all[[paste0('rep.r3c_', str_split_fixed(f, '_', 3)[2], '.', 
+                                             config[cond])]] <- hit_fragments
+                    }
+                }
+                
+                # Write dummies if no r3c_obj was written
+            } else {
+                warning('\nNo r3c_obj has been found. Please check this!\n')
+                r3c.tool <- r3c %>% gsub('_obj', '', .)
+                # cond dummy
+                gr <- dummy.gr
+                gr$tool <- paste0('rep.', r3c.tool, '.', config$condition)
+                list.sia.all[[paste0('rep.', r3c.tool, '.', config$condition)]] <- gr
+                
+                # control dummy
+                gr <- dummy.gr
+                gr$tool <- paste0('rep.', r3c.tool, '.', config$control)
+                list.sia.all[[paste0('rep.', r3c.tool, '.', config$control)]] <- gr
+            }
+        }
+    }
+    # Reads single rds files if no control is involved
+    else {
+        # Extract object and iterate over them
+        for (f in setdiff(ls(pattern = '^rds.r3c'), lsf.str())) {
+            fi <- get(f)
+            sample <- gsub('rds.r3c.', '', gsub('_sorted', '', basename(f)))
+            
+            # Extract significant interactions
+            if (length(fi@expInteractionRegions) == 0){
+                r3c.tmp <- dummy.gr
+            } else {
+                r3c.tmp <- fi@expInteractionRegions %>%
+                    as.data.frame() %>%
+                    filter(seqnames == paste0('chr', config$VPchr)) %>%
+                    filter(p.value < 0.05) %>%
+                    dplyr::select(seqnames, start, end, nReads, q.value) %>%
+                    mutate(tool = paste0('single.r3c_', sample)) %>%
+                    makeGRangesFromDataFrame(keep.extra.columns = T)
+                
+                mcols(r3c.tmp)$significance <- 0
+                r3c.tmp$significance[r3c.tmp$q.value < 0.1] <- 1  # TODO change in r3c
+                r3c.tmp$significance[r3c.tmp$q.value] <- 2
+                r3c.tmp$significance[r3c.tmp$q.value < 0.01] <- 3
+                
+                overlap <- findOverlaps(r3c.tmp, basic.frag.chr.gr, type = 'any')
+                
+                # Get the indices of the fragments hit by at least one peak
+                fragment_hits <- subjectHits(overlap)
+                
+                # Extract the fragments hit
+                hit_fragments <- basic.frag.chr.gr[fragment_hits]
+                
+                if (length(hit_fragments) == 0){
+                    hit_fragments <- dummy.gr
+                    hit_fragments$tool <-  paste0('single.r3c.', sample) 
+                } else {
+                    hit_fragments$tool <-  paste0('single.r3c.', sample) 
+                    hit_fragments$significance <- 0
+                }
+            }
+            
+            list.sia.all[[paste0('single.r3c_', sample)]] <- r3c.tmp
+        }
+    }
+})
+plotConsens.grl(consens.df = list.sia.all[grepl('(single|rep).r3c_*', names(list.sia.all))],  xlim = c(config$VPpos-1000000, config$VPpos+1000000))
+```
+
+## fourSig
+
+```{r fourSig, echo=FALSE}
+# Iterate over foursig rds objects and bring them to sia format
+fs.samples <- paste0(rep(paste0("rds.foursigit_", c(1,3,5,11), ".", 
+                    config$condition, "_"), each = max(config$conditionRep)), 
+         config$conditionRep) 
+    
+if (!is.null(config$control))fs.samples <- c(fs.samples, paste0(rep(paste0("rds.foursigit_", c(1,3,5,11), ".", 
+                  config$control, "_"), each = max(config$controlRep)), config$controlRep))
+    
+try(for (f in fs.samples){ 
+    
+    # Extract sample name
+    sample <- gsub('rds.', 'single.', f)
+    
+    if (exists(f)){
+        #  Bring foursig output to sia format
+        tmp.gr <- get(f) %>% 
+            dplyr::mutate(tool = sample) %>%
+            dplyr::mutate(chr = as.factor(paste0('chr', chr))) %>%
+            dplyr::mutate(reads = as.numeric(reads)) %>%
+            dplyr::rename(seqnames = chr) %>%
+            dplyr::rename(nReads = reads) %>%
+            dplyr::rename(significance = category) %>%
+            mutate(significance = recode(significance, 
+                                         `3` = 1, 
+                                         `1` = 3)) %>%
+            makeGRangesFromDataFrame(keep.extra.columns = T)
+        
+        if (startsWith(sample, "single.foursig_1.")){
+            # Map onto fragments
+            # TODO only if frag is 0 
+            overlap <- findOverlaps(tmp.gr, basic.frag.chr.gr, type = 'any')
+            
+            # Get the indices of the fragments hit by at least one peak
+            fragment_hits <- subjectHits(overlap)
+            
+            # Extract the fragments hit
+            hit_fragments <- basic.frag.chr.gr[fragment_hits]
+            if (length(hit_fragments) == 0){
+                hit_fragments <- dummy.gr
+                hit_fragments$tool <- sample
+                mcols$significance <- 0
+            } else {
+                hit_fragments$tool <- sample
+                mcols(hit_fragments)$significance <- tmp.gr[queryHits(overlap)]$significance
+            }
+            # Collect sia object in list
+            list.sia.all[[sample]] <- hit_fragments
+        } else {
+            list.sia.all[[sample]] <- tmp.gr
+        }
+    } else {
+        message(paste0('No ', f, ' found. Dummy'))
+        hit_fragments <- dummy.gr
+        hit_fragments$tool <- sample
+        hit_fragments$significance <- 0
+        list.sia.all[[sample]] <- hit_fragments
+    }
+})
+
+# Remove rds foursig objects from env
+rm(list = ls(pattern = "^rds\\.foursig"))
+plotConsens.grl(consens.df = list.sia.all[grepl('single.foursig.*', names(list.sia.all))],  xlim = c(config$VPpos-1000000, config$VPpos+1000000))
+```
+
+
+## PeakC
+Add significance information 
+
+```{r peakcsig, echo=FALSE}
+if (is.null(config$control)) {
+  pc <- c('condition')
+} else {
+  pc <- c('condition', 'control')
+}
+		
+
+# Iterate over peakC results and process them
+try(for(cond in pc){
+        for (w in c(1, 11, 21, 31, 51, 101)){
+            p <- setdiff(ls(pattern = paste0('^rds.peakc_',w,'\\.', 
+                                             config[cond],'.*_alphaFDR')), lsf.str())
+            
+            # Collect peaks called with different sig levels in a list
+            x <-lapply(p, function(x) get(x)$peak)
+            res <- rev(lapply(length(p):1, function(n){
+                diff <- setdiff(x[[n]], unlist(x[n-1]))
+                result <- if (length(diff) == 0) {
+                    ""
+                } else {
+                    diff
+                }
+            }))
+            
+            # Name entries according to the significance level were the opeaks were called
+            names(res) <-  as.numeric(str_match(basename(p), '0\\.\\d+'))
+            df <- data.frame(
+                FDR_level = rep(names(res), sapply(res, length)), end = unlist(res)) %>% 
+                mutate(significance = recode(FDR_level,
+                                             '0.01' = 3,
+                                             '0.05' = 2,
+                                             '0.1' = 1,
+                                             '0.25' = 0,
+                                             '0.5' = 0)) %>% 
+                filter(end != "", significance > 0)
+            
+            # Bring the peaks to peakc format to add peak starts
+            peak.esc.collect <- list()
+            peak.esc.collect$dbr <- df
+            peak.esc.collect$peak <- unique(unlist(res))
+            
+            # Create sample name for collected peaks              
+            sample <- str_extract(p[1], 'peakc_\\d+\\.[^_]+(_[^_]*)*$') %>% 
+                gsub('peakc', 'rep.peakcSig', .) %>%
+                gsub("(_[^_]+)$", "", .)
+            
+            # Add start
+            tmp <- addStartToPeakCSig(peakc.collect = peak.esc.collect,
+                                      basic4c.vfl = basic.frag.chr.gr, sample.name = sample) %>% 
+                mutate(tool = sample) 
+            
+            # If peaks are found
+            if (nrow(tmp) > 0){
+                tmp.gr <- makeGRangesFromDataFrame(tmp, keep.extra.columns = T)
+                tmp.gr<-  tmp.gr[tmp.gr$significance > 0] 
+                
+                # Collect sia object in list
+                list.sia.all[[sample]] <- tmp.gr
+            } else {
+                message('No sias found by peakc, add dummy gr.')
+                dummy.gr.p <- dummy.gr
+                dummy.gr.p$tool <- sample
+                list.sia.all[[sample]] <- dummy.gr.p
+            }}
+    }
+)
+
+try(plotConsens.grl(
+    consens.df = list.sia.all[grepl('rep.peakcSig|VP', names(list.sia.all) )],
+    xlim = c(config$VPpos-1000000, config$VPpos+1000000)))
+```
+
+# 4C-ker
+
+```{r, echo=FALSE}
+# If no sia found r4cker writes out empty bed file -> dummy.gr
+r4ckers <- list.files(paste0(res.path, 'r4cker/out'), 
+                      paste0(gsub( '\\+', '\\\\+', config$author),
+                             '_(',config$condition,'|', config$control, ')',
+                             '_(nearbait|cis)_highinter.*.bed'), full.names = T)
+
+# Iterate over r4cker bed files
+try(for (i in seq_along(r4ckers)){
+    sample <- paste0('rep.r4cker_', 
+                     basename(r4ckers[i]) %>%
+                         str_extract(paste0('(', gsub('+', '\\+', config$author, fixed = TRUE), ')', 
+                                            '_(.*)_(cis|nearbait)_(highinter|lowinter).bed$'), c(3, 2)) %>% 
+                         paste(., collapse = '.'))
+    
+    # If files has lines read it
+    file_path <- r4ckers[i]
+    
+    # Get the file size once
+    file_size <- file.size(file_path)
+    
+    # Check if the file size is NA
+    if ((file_size == 0)) {
+        print("File is empty")
+        r <- dummy.gr
+        r$tool <- sample
+        list.sia.all[[sample]] <- r 
+    } else {
+        # Attempt to read the file
+        r <- read.delim(file_path, sep = '', header = FALSE)
+        colnames(r) <- c('seqnames', 'start', 'end')
+        r$nReads <- -1  
+        r$significance <- 3
+        
+        # Map onto nearbait
+        overlap <- findOverlaps(makeGRangesFromDataFrame(r), nearbait.area, 
+                                type ='any')
+        fragment_hits <- subjectHits(overlap)
+        
+        # Extract the fragments hit
+        hit_fragments <- nearbait.area[fragment_hits]
+        
+        if (length(hit_fragments) == 0){
+            hit_fragments <- dummy.gr
+        }
+        
+        hit_fragments$significance <- r[queryHits(overlap),]$significance  
+        hit_fragments$tool <- sample
+        
+        # Collect sia object in list
+        list.sia.all[[sample]] <- hit_fragments
+    }
+})
+
+try(plotConsens.grl(
+    consens.df = list.sia.all[grepl('rep.r4cker*|VP', names(list.sia.all) )],
+    xlim = c(config$VPpos-1000000, config$VPpos+1000000)))
+```
+
+# Summarize replicates
+# Collapse Replicates
+
+```{r collpase.rep, echo=FALSE}
+#' Extract all elements from grangeslist from individial ("single") samples
+#' These are grouped by tools and then by treatment and than collapsed via
+#' majority vote
+samples <- names(list.sia.all)[startsWith(names(list.sia.all), 'single')]
+tool <- unique(str_split_i(samples, "\\.", i = 2))
+
+for(t in tool){
+    print(t)
+    # Extract condition and ctrl sias of selected tool
+    # Extract all samples of one tool 
+    single.tmp.tool <- list.sia.all[startsWith(names(list.sia.all), 
+                                               paste0('single.', t, '.'))]
+    
+    # Extract only treatment info without replicate
+    single.tmp.split.tool <- split(single.tmp.tool, sub("_[^_]*$", "", 
+                                                        names(single.tmp.tool)))
+    
+    # Iterate over condition and control, calculate majority vote over replicates
+    try(
+        for (i in rev(names(single.tmp.split.tool))) {
+            min <- ceiling(length(config$conditionRep)/2)  
+            mv <- getMajorityVote.grl(intervalls = single.tmp.split.tool[[i]], 
+                                      greater.than = min)
+            mv$tool <- gsub('single', 'rep', i)
+            print(gsub('single', 'rep', i))
+            list.sia.all[[gsub('single', 'rep', i)]] <- mv
+            rm(mv)
+        })
+}
+```
+
+# Add significance information to fourSig if necessary
+should not be done on rep.foursig since here fragments are summarized
+
+```{r, warning=FALSE, echo=FALSE}
+# Iterate over replcates
+# only on r3c if single condition TODO test
+samples <- names(list.sia.all)[grepl('single.(foursig|r3c)',names(list.sia.all))]  
+tool <- unique(str_split_i(samples, "\\.", i = 2))
+
+for(t in tool){
+    print(t)
+    # Extract condition and ctrl sias of selected tool
+    # Extract all samples of one tool 
+    single.tmp.tool <- list.sia.all[startsWith(names(list.sia.all), 
+                                               paste0('single.', t, '.'))]
+    
+    # Extract treatment and replicate info
+    single.tmp.split.tool <- split(single.tmp.tool, sub("_[^_]*$", "", 
+                                                        names(single.tmp.tool)))
+    
+    # Iterate over condition and control, get significance information from replicates
+    try(
+        for (cond in names(single.tmp.split.tool)) {
+            # Extract replicates for current condition
+            cond.tmp <- str_extract(cond, '(?<=\\.)[^\\.]+$')
+            single.tmp.rep <- as.numeric(str_extract(names(single.tmp.tool)[grepl(cond.tmp, names(single.tmp.tool))], '(?<=\\_)[^\\_]+$'))
+            
+            # Iterate over replicates and collect significance information in sia rep slot
+            for (i in single.tmp.rep) {
+                # New significance_[rep] column
+                mcols(list.sia.all[[gsub('single', 'rep',cond)]])[[paste0('significance_', i)]] <- NA
+                
+                # Lookup significance in corresponding single.[tool]_[rep] and add it
+                sig.lookup <-  list.sia.all[[paste0(cond, '_', i)]]
+                ov <- findOverlaps(list.sia.all[[gsub('single', 'rep',cond)]], sig.lookup)
+                sig.lookup[subjectHits(ov)]
+                mcols(list.sia.all[[gsub('single', 'rep',cond)]][queryHits(ov)])[ paste0('significance_', i)] <-   sig.lookup[subjectHits(ov)]$significance
+            }    
+            
+            # Summarize significance over all replicates
+            reps.df <- as.data.frame(mcols(list.sia.all[[gsub('single', 'rep',cond)]])) %>% dplyr::select(paste0('significance_', single.tmp.rep))
+            
+            # Create significance vector
+            significance <- rep(NA, nrow(reps.df))
+            
+            # Apply function to each row to create the significance vector
+            significance <- apply(reps.df, 1, function(row) {
+                # Convert row to numeric and drop NAs
+                row <- row[!is.na(row)]
+                table_values <- sort(table(row), decreasing = T)  # Create a frequency table
+                max_count <- max(table_values)  # Get the maximum count
+                
+                # If valze occurs in more than the half of the reps -> return it
+                if (max_count >= floor(ncol(reps.df) / 2 + 1)) {
+                    return(as.numeric(names(table_values)[1]))  # Return the value if meets criteria
+                    
+                    # If mixed values but more than in the half of replicates no NA
+                } else if (length(table_values) >= floor(ncol(reps.df) / 2 + 1)){
+                    return(floor(mean(row)))
+                } else {
+                    return(0)
+                }
+            }
+            )
+            mcols(list.sia.all[[gsub('single', 'rep',cond)]])['significance'] <- significance
+        })
+}
+plotConsens.grl(consens.df = list.sia.all,  xlim = c(config$VPpos-1000000, 
+                                                     config$VPpos+1000000))
+```
+
+# Crete sia files
+
+```{r sia, echo=FALSE}
+smoothFillSiaNB <- function(sia = GRanges(), nearbait.area,
+                            lookup.size = integer(), config = data.frame(), 
+                            step = 1, outfile = character(), vp.gr = GRanges()){
+    out.name <- gsub(paste0(sub(".*\\.", "", sia$tool[1]), '$'), 
+                     ifelse(sub(".*\\.", "", sia$tool[1]) == config$condition, 
+                            'condition', 'control'), 
+                     gsub('rep', '', paste0('../results/', config$author, 
+                                            '/sia/', config$author, 
+                                            gsub('\\.', '_', sia$tool[1]))))
+
+    # Add significance information to virtual fragment library (vfl)
+    # Map fragments onto vfl
+    ov <- findOverlaps(nearbait.area, sia)
+    
+    # Check if fragments getting lost
+    unique(subjectHits(ov)) %>% length() == length(sia)
+    
+    # Add significance information from sias
+    nearbait.area$significance <- 0
+    nearbait.area[queryHits(ov)]$significance <- sia[subjectHits(ov)]$significance
+    nearbait.area %>%
+        as.data.frame() %>%
+        dplyr::select(seqnames, start, end, significance) %>%
+        # filter(significance > 0) #%>%
+        write.table(paste0(out.name, '_nearbait.bed'), quote = F, row.names = F, 
+                    sep = '\t')
+}
+```
+
+```{r, echo=FALSE}
+sel <- names(list.sia.all)[grepl('rep.(peakcSig_\\d|foursig|r4cker|r3c_\\d)', names(list.sia.all))]
+process_sia <- function(s) {
+    tryCatch({
+        smoothFillSiaNB(sia = list.sia.all[[s]], nearbait.area = nearbait.area.out, config = config, vp.gr = vp.gr)
+    }, error = function(e) {
+        message("Error processing ", s, ": ", e$message)
+    }, warning = function(w) {
+        message("Warning in ", s, ": ", w$message)
+    })
+}
+
+# Process each selection
+try(sapply(sel, process_sia))
+
+# Plotting with tryCatch
+tryCatch({
+    plotConsens.grl(list.sia.all[names(list.sia.all)[grepl('rep.(r3c(flat)*|peakcSig(flat)*|foursig|r4cker)|VP',
+                                                           names(list.sia.all))]], xlim = c(config$VPpos - 500000, config$VPpos + 500000))
+}, error = function(e) {
+    message("Error in plotting: ", e$message)
+})
+```
+
+```{r, eval=FALSE}
+file.create(paste0(res.path, 'sia/finished.txt'))
+```
