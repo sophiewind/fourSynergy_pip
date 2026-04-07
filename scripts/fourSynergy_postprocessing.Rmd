@@ -25,27 +25,10 @@ library(yaml)
 ```
 
 ```{r config, include=FALSE}
-# config <- read_yaml('../Datasets/Geeven_sox////info.yaml')
-# config <- read_yaml('../Datasets/Modrek_SOX2////info.yaml')
-#config <- read_yaml('../Datasets/Takeda_promoter_siGATA2/////info.yaml')
-
 config <- read_yaml(file = params$config)
 ```
 
 ```{r, viewpoint, include=FALSE}
-#vi.in <- '../Datasets/Geeven_sox/viewpoint.bed'
-#vi.in <- '../Datasets/Modrek_SOX2/viewpoint.bed'
-#vi.in <- '../Datasets//Takeda_promoter_siGATA2/viewpoint.bed'
-
-# vi <- read.csv(params$vp, sep = '\t')
-# 
-# 
-# vi <-  vi[vi$name != 'VP',]
-# vi$name <- factor('known')
-# colnames(vi) <- c('seqnames', 'start', 'end', 'nReads', 'tool')
-# vi$tool <- factor('known')
-# vi$seqnames <- as.factor(vi$seqnames)
-
 vp <- data.frame(seqnames = paste0('chr', config$VPchr),
                  start = config$VPpos-1000,
                  end = config$VPpos+1000, 
@@ -99,7 +82,6 @@ addStartToPeakC <- function(peakc.obj, basic4c.vfl, sample.name){
 }
 
 addStartToPeakCSig <- function(peakc.collect, basic4c.vfl, sample.name){
-    #sample <- deparse(substitute(peakc.collect))
     # Check if hits fragment
     peaks <- peakc.collect$dbr %>%  
         mutate(seqnames = paste0('chr', config$VPchr), start = end) %>%  
