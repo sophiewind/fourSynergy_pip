@@ -1,0 +1,334 @@
+---
+title: "Precision, recall, f1"
+format: html
+editor: visual
+---
+# Load ouput data from
+- r3C seq
+- peakC
+- fourSig
+
+```{r data}
+library(GenomicRanges)
+library(yaml)
+
+setwd("~/work")
+
+message(getwd())
+# go one dir back because rmd uses own location as wd 
+#config.yml <- paste0('../', commandArgs(trailingOnly = T)[1])
+config.yml <- '../../Datasets/simulated/nearCis_longer/DC01/info.yaml'
+
+config <- read_yaml(file = config.yml)  # TODO dynamic
+res.path <- paste0('../../results/', config$author, '/')
+
+# Read r3C seq
+tryCatch({r3c_obj <- readRDS(paste0(res.path, 'r3cseq/r3Cseq_obj.rds'))}, error = function(e){
+            message('Found no r3c rds files!')
+  })
+
+
+# Read fourSig
+tryCatch({
+  for (w in list.files(paste0(res.path, 'fourSig/'), 
+                     '*_w_fourSig.rds', 
+                     full.names = T)) {
+  sample <- gsub('_w_fourSig.rds', '', basename(w))
+  assign(paste0('fourSig_w_', sample), readRDS(w))
+  assign(paste0('fourSig_sig_', sample), readRDS(gsub('_w', '', w)))
+}
+}, error = function(e){
+            message('Found no fouSig rds files!')
+  })
+
+# Read peakC
+tryCatch({
+  for (f in list.files(paste0('/home/rstudio/work/results/nearCis_longer_dc01/peakC/'), '*.rds', full.names = T)) {
+    print(f)
+    sample <- gsub('_peakC.rds', '', basename(f))
+    assign(paste0('peakC_', sample), readRDS(f))
+
+}
+}, error = function(e){
+            message('Found no peakC rds files!')
+  })
+
+```
+
+## fourcseq
+
+```{r, eval=FALSE}
+fcs <- try(readRDS(paste0(res.path, 'fourcseq/z_score_plot_data.rds')))
+#fcs <- readRDS('../results/Fan/fourcseq/z_score_plot_data.rds')
+
+try(for (i in 1:(length(fcs@plot)-1)){
+  print(i)
+  sample <- gsub('VP_', '', names(fcs@plot)[i])
+  fcs.data <- fcs@plot[[i]]$data
+  fcs.data <- fcs.data %>% filter(peak == TRUE) %>% select(seqnames, start, end, count) %>% mutate(tool = paste0("FourCSeq_", sample))
+ #fcs.data <-
+colnames(fcs.data) <- c('seqnames', 'start', 'end', 'nReads', 'tool')
+fcs.data
+assign(paste0('fourcseq_s_', sample), fcs.data)
+})
+```
+
+
+
+# Transform data into common structure
+## r3C Seq
+
+```{r r3cseq}
+#tryCatch(
+#  {
+  r3c_s_cond <- as.data.frame(r3c_obj@expInteractionRegions) %>%
+  filter(seqnames == paste0('chr', config$VPchr)) %>%
+  filter(p.value < 0.05) %>%
+  select(seqnames, start, end, nReads) %>%
+  mutate(tool = 'r3C-seq_cond')
+
+# TODO code soft or just read samples of interest
+#read.count.table <- r3c_obj@readCountTable  # TODO replace by basic4C
+#read.count.table.bmm1 <- read.count.table[, c(1)]
+# TODO sort by p value
+
+if (!is.null(config$control)){
+  r3c_s_ctrl <- as.data.frame(r3c_obj@contrInteractionRegions) %>%
+  filter(seqnames == paste0('chr', config$VPchr)) %>%
+  filter(p.value < 0.05) %>%
+  select(seqnames, start, end, nReads) %>%
+  mutate(tool = 'r3C-seq_ctrl')
+}
+
+# colnames(bmm1.r3c)[1] <- 'chr'
+# }, error = function(e){
+#             message('Found no r3c rds files!')
+#   }
+#            )
+
+```
+
+## fourSig
+
+```{r fourSig}
+# clean up fourSig results
+try(for (f in setdiff(ls(pattern = '^fourSig_sig'), lsf.str())) {
+  sample <- gsub('_sig_', '', gsub('*fourSig_sig', '', f))
+   assign(paste0('fourSig_s', sample), 
+         get(f)[,c(1,2,3,5)]  %>% 
+         mutate(tool = paste0('fourSig', sample)) %>%
+         mutate(chr = as.factor(paste0('chr', chr))) %>%
+         mutate(reads = as.numeric(reads)) %>%
+           rename(seqnames = chr) %>%
+           rename(nReads = reads))
+})
+```
+
+
+## PeakC
+
+peakC
+- challenge: only end of intervall available 
+
+```{r peakC}
+# Idea get fragmented genome from basic4Cseq
+# Get seq start
+# match end with fragments and see
+# ?? strandedness rein??? Carolin
+
+basic.frag <- read.csv(list.files(paste0(res.path, 'basic4cseq/'), 
+                                  '*_frags.csv', full.names = T)[1], sep = '\t')
+
+tryCatch({
+#  genome.frag <- (r3c_obj@readCountTable %>%
+#  granges())
+#genome.frag.chr <- genome.frag[seqnames(genome.frag) == paste0('chr', config$VPchr)]
+
+genome.frag <- (basic.frag%>%
+  makeGRangesFromDataFrame())
+genome.frag.chr <- genome.frag[seqnames(genome.frag) == paste0('chr', config$VPchr)]
+
+
+# Control ####
+# extract peak regions from dbR
+getPeakCRPF <- function(peakC.obj, fragmented.genome, re.length){
+  #' PeakC does only include the position of the end of the fragment.
+  #' Therefore, the r3c seq fragment table(fragmented genome) is used 
+  #' to get corresponding start positions.
+  #' Since peakC counts the re to the fragment end while r3c seq doesnt
+  #' Cutter length has to be substracted from the postition of the peakC 
+  #' fragment end
+  #?? CAROLIN not all positions are found
+  
+  # New column containing the end positition with the cutter length sustracted 
+  peakC.obj$dbR$frag_pos_minus_re <-peakC.obj$dbR$frag_pos - re.length
+  
+  # Extract positions of peaks 
+  dbr.peaks <- peakC.obj$dbR[peakC.obj$dbR$frag_pos %in% peakC.obj$peak,]
+  
+  # Match peakC fragment ends with fragment ends from fragmented genome
+  peaks.ends <- peakC.obj$peak[(peakC.obj$peak - re.length) %in% 
+                                  end(fragmented.genome) ]-re.length
+  
+  #' Extract the full peakC fragment postions by matching peak ends 
+  #' with the fragment ends of the fragmented genomes
+  frag.genome.peaks <- fragmented.genome[end(fragmented.genome) %in% peaks.ends]
+  
+  
+  # check, TODO for dev
+  #dbr.peaks$frag_pos %>% length()
+  #dbr.peaks$frag_pos %>% unique() %>% length()
+  
+  frag.genome.peaks.df <- as.data.frame(frag.genome.peaks) %>%
+    mutate(tool = 'peakC') %>% 
+    mutate(nReads = 0)  # TODO delete later
+  
+  # TODO unnötige schritte mit dbr peaks, da score nicht verwendet
+  # ??Carolin brauchen wir peakC score
+  # Name is not correct in meaning, but its necessary for merge
+  frag.genome.peaks.df$frag_pos_minus_re <- frag.genome.peaks.df$end
+  peakC.obj.full.df <- merge(dbr.peaks, frag.genome.peaks.df, by = 'frag_pos_minus_re') %>% 
+    select(seqnames, start, end, nReads, tool)
+  
+  return(peakC.obj.full.df)
+}
+
+
+for (p in setdiff(ls(pattern = '^peakC'), lsf.str())) {
+assign(gsub('peakC', 'peakC_s', p),
+       getPeakCRPF(peakC.obj = get(p), 
+                              fragmented.genome = genome.frag.chr, 
+                              re.length = nchar(config$RESeq[1])))
+
+}
+}, error = function(e){
+            message('Found no r3c rds files!')
+  })
+
+
+
+```
+
+# Read validated interactions
+
+```{r}
+vi <- read.csv('../../Datasets/simulated/nearCis_longer/DC01/viewpoint.bed', sep = '\t')
+
+vi$name <- factor('known')
+colnames(vi) <- c('seqnames', 'start', 'end', 'nReads', 'tool')
+vi$tool <- factor('known')
+vi$seqnames <- as.factor(vi$seqnames)
+#vi$nreads <- as.integer(vi$nreads)
+```
+
+
+# Precision, Recall, F1 score 
+## Single Tools
+### r3cseq
+
+```{r, include=FALSE}
+getPrecisionRecallF1 <- function(gold.standard, experiment){
+  # Extract individual positions
+  positions.known <- unlist(lapply(1:nrow(gold.standard), function(i) {seq(gold.standard[i, 'start'], gold.standard[i, 'end'])}))
+  positions.exp <- unlist(lapply(1:nrow(experiment), function(i) {seq(experiment[i, 'start'], experiment[i, 'end'])}))
+  
+  # Calculate precision, recall and f1 score
+  #positions.known <- c('A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'Z', 'P') 
+  #positions.exp <-  c('A', "E", "I", "O", "U", "Y")
+  true.pos <- intersect(positions.known,positions.exp)
+  precision <- length(true.pos) / length(positions.exp)
+  recall <- length(true.pos) / length(positions.known)
+  f1 <- 2*((precision*recall)/(precision+recall))
+
+  # Store results in vector
+  precision.recall <-c(precision, recall, f1)
+  return(precision.recall)
+}
+
+getPrecisionRecallF1(vi, r3c_s_cond)
+
+
+r3c_s_cond$tool <- as.factor(r3c_s_cond$tool)
+
+
+source('/home/rstudio/work/fourcseq_wip/scripts/ensemble_functions.R')
+
+comb <- rbind(vi, r3c_s_cond)
+plotConsens(comb, xlim =  c(69863625, 70193853))
+```
+
+
+
+### peakC
+
+```{r}
+source('/home/rstudio/work/fourcseq_wip/scripts/ensemble_functions.R')
+
+getPrecisionRecallF1(vi, peakC_s_condition_raw)
+r3c_s_cond$tool <- as.factor(peakC_s_condition_raw$tool)
+
+comb <- rbind(vi, peakC_s_condition_raw)
+plotConsens(comb, xlim =  c(69863625, 70193853))
+
+```
+
+## Tool combinations
+### r3cseq + peakC
+
+
+
+
+```{r}
+union.r3c.peakC <- getUnion(intervalls = list(r3c_s_cond, peakC_s_condition_raw))[[2]]
+getPrecisionRecallF1(vi, union.r3c.peakC)
+
+```
+
+
+```{r}
+inter.r3c.peakC <- getIntersect(intervalls = list(r3c_s_cond, peakC_s_condition_raw))
+```
+
+
+
+```{r}
+mylist <- mget(ls(pattern = "((fourSig|r3c|peakC|fourcseq)_s_)|(inter|union|majority).(fourSig|r3c|peakC|fourcseq)"))
+
+df <- as.data.frame(t(as.data.frame(lapply(mylist, 
+      function(x){
+        pr <- getPrecisionRecallF1(vi, x)
+      }))))
+colnames(df) <- c('precision', 'recall', 'f1')
+df <- df %>% tibble::rownames_to_column(var = 'tool')
+df.m <- melt(df)
+
+ggplot(df.m, aes(x = tool, y = value, color = variable)) +
+  geom_point()
+
+
+y <- do.call(rbind, mylist)
+plotConsens(y, xlim =  c(69863625, 70193853))
+```
+
+
+
+
+```{r, eval=FALSE}
+df <- t(as.data.frame(mget(ls(pattern = 'precision.recall*'))))
+colnames(df) <- c('precision', 'recall')
+rownames(df) <- gsub('precision.recall.', '', rownames(df))
+df.m <- melt(df)
+colnames(df.m) <- c('tool', 'metric', 'value')
+df.m$tool <- factor(df.m$tool, levels = c("peakC", "r3c", 
+                                          "inter.peakC.r3c",
+                                          "union.peakC.r3c"))
+```
+
+```{r, eval=FALSE}
+library(dplyr)
+ggplot(df.m, aes(x = tool, y = value, color = metric)) +
+  geom_point() +
+  theme(axis.text.x = element_text(angle = 90))
+```
+
+ 

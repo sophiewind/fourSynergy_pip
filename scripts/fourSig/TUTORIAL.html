@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+
+<html>
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8"/>
+
+<title>fourSig Tutorial</title>
+
+<style type="text/css">
+body, td {
+   font-family: sans-serif;
+   background-color: white;
+   font-size: 12px;
+   margin: 8px;
+}
+
+tt, code, pre {
+   font-family: 'DejaVu Sans Mono', 'Droid Sans Mono', 'Lucida Console', Consolas, Monaco, monospace;
+}
+
+td.args {
+   text-align:right;
+   verticle-align:top;
+}
+
+h1 { 
+   font-size:2.2em; 
+}
+
+h2 { 
+   font-size:1.8em; 
+}
+
+h3 { 
+   font-size:1.4em; 
+}
+
+h4 { 
+   font-size:1.0em; 
+}
+
+h5 { 
+   font-size:0.9em; 
+}
+
+h6 { 
+   font-size:0.8em; 
+}
+
+a:visited {
+   color: rgb(50%, 0%, 50%);
+}
+
+pre {	
+   margin-top: 0;
+   max-width: 95%;
+   border: 1px solid #ccc;
+   white-space: pre-wrap;
+}
+
+pre code {
+   display: block; padding: 0.5em;
+}
+
+code.r, code.cpp {
+   background-color: #F8F8F8;
+}
+
+table, td, th {
+  border: none;
+}
+
+blockquote {
+   color:#666666;
+   margin:0;
+   padding-left: 1em;
+   border-left: 0.5em #EEE solid;
+}
+
+hr {
+   height: 0px;
+   border-bottom: none;
+   border-top-width: thin;
+   border-top-style: dotted;
+   border-top-color: #999999;
+}
+
+@media print {
+   * { 
+      background: transparent !important; 
+      color: black !important; 
+      filter:none !important; 
+      -ms-filter: none !important; 
+   }
+
+   body { 
+      font-size:12pt; 
+      max-width:100%; 
+   }
+       
+   a, a:visited { 
+      text-decoration: underline; 
+   }
+
+   hr { 
+      visibility: hidden;
+      page-break-before: always;
+   }
+
+   pre, blockquote { 
+      padding-right: 1em; 
+      page-break-inside: avoid; 
+   }
+
+   tr, img { 
+      page-break-inside: avoid; 
+   }
+
+   img { 
+      max-width: 100% !important; 
+   }
+
+   @page :left { 
+      margin: 15mm 20mm 15mm 10mm; 
+   }
+     
+   @page :right { 
+      margin: 15mm 10mm 15mm 20mm; 
+   }
+
+   p, h2, h3 { 
+      orphans: 3; widows: 3; 
+   }
+
+   h2, h3 { 
+      page-break-after: avoid; 
+   }
+}
+
+</style>
+
+<!-- Styles for R syntax highlighter -->
+<style type="text/css">
+   pre .operator,
+   pre .paren {
+     color: rgb(104, 118, 135)
+   }
+
+   pre .literal {
+     color: rgb(88, 72, 246)
+   }
+
+   pre .number {
+     color: rgb(0, 0, 205);
+   }
+
+   pre .comment {
+     color: rgb(76, 136, 107);
+   }
+
+   pre .keyword {
+     color: rgb(0, 0, 255);
+   }
+
+   pre .identifier {
+     color: rgb(0, 0, 0);
+   }
+
+   pre .string {
+     color: rgb(3, 106, 7);
+   }
+</style>
+
+</head>
+
+<body>
+<h1>fourSig Tutorial</h1>
+
+<p><b>fourSig</b> is a suite of programs used to identify significant
+chromosomal interactions from 4C-seq data.  Currently it works with
+data in either SAM, BAM or Bowtie formats.</p>
+
+<p>This tutorial will teach you how to use the <b>fourSig</b> suite of programs.  
+In it we will analyze the interactions that take place at the 
+<a href="http://genome.ucsc.edu/cgi-bin/hgTracks?hgsid=344924795&hgt_doJsCommand=&hgt.out2=+3x+&dirty=false&position=chr7%3A110929152-111052676">Beta-Globin locus</a>
+in mice.
+</p>
+
+<ol>
+
+<li>
+<p><b>Download and unpack fourSig</b></p>
+<p>If you haven't already done this, download the latest version of
+fourSig from the Sourceforge website:
+<a href="https://sourceforge.net/projects/foursig/">https://sourceforge.net/projects/foursig/</a>
+<p> Now unpack it
+<pre><code class="r">
+shell$ tar -xzvf fourSig.tar.gz
+</pre></code>
+
+<li>
+<p><b>Get the data</b></p>
+<p>
+There are two ways to get the data: 1) the easy way and 2) the hard way.
+<ul>
+<li>
+<p>The easy way.<p>  
+Use the pre-formatted data that comes with this tutorial.  If you choose
+this option go straight to the <a href="#analysis">analysis section</a>.
+<li>
+<p>The hard way. 
+<p>Use the raw data.  
+The plus side of using raw data is that it will be more like what you
+will have to do with your own data.  The downside to using the raw data is
+that it is in BAM format and you'll need
+<a href="http://samtools.sourceforge.net/">samtools</a> to read it.
+However, there's a good chance you already have it installed.</p>
+
+<p>If you choose to download the raw data, you can read about it here:</p>
+<p><a href="http://r3cseq.genereg.net/Site/index.html">http://r3cseq.genereg.net/Site/index.html</a>
+<p>And the files are here:</p>
+<p><a href="http://r3cseq.genereg.net/download/Beta-major-prom-FL.bam">http://r3cseq.genereg.net/download/Beta-major-prom-FL.bam</a>
+<p><a href="http://r3cseq.genereg.net/download/Beta-major-prom-FB.bam">http://r3cseq.genereg.net/download/Beta-major-prom-FB.bam</a>
+</ul>
+<li><b>Format the data for analysis</b>
+<p>If you downloaded the BAM files, the
+next thing to do is to create TAB formatted files.  TAB format is just
+a tab delimited file that contains an index of all the possible genomic
+fragments that the reads could map to.  It also keeps track of how many
+reads map to them, and also whether or not the fragment is mappable
+(see our paper for details on how we determine if a fragment is mappable -
+in short, it depends on the length of the fragment, as well as how it will
+be digested by the 3C and 4C restriction enzymes).
+
+<pre><code class="r">
+shell$ ./bamToReTab.pl -M -o "Y" 18 700 20 Beta-major-prom-FB.sam mm9_re_sites/b6_hind3_sites.txt mm9_re_sites/b6_nla3_sites.txt NONE > Beta-major-prom-FB.tab
+
+shell$ ./bamToReTab.pl -M -o "Y" 18 700 20 Beta-major-prom-FL.sam mm9_re_sites/b6_hind3_sites.txt mm9_re_sites/b6_nla3_sites.txt NONE > Beta-major-prom-FL.tab
+</code></pre>
+
+<p>As you see, <code>bamToReTab.pl</code> takes a bunch of arguments.  
+Here is what they are (NOTE, you can read about additional options by
+simply typing <code>./bamToReTab.pl</code> at the command line without
+any other options are arguments):
+<ul>
+<li> <b>-M :</b> This specifies to use the mouse mm9 genome. You can specify
+the human hg19 genome by using <b>-H</b> instead. If you want to use another
+genome, there are just a few easy edits to the code you need to do. Just open up
+bamToReTab.pl and follow the directions.
+<li> <b>-o "Y" :</b> This specifies that we want to omit analysis of chromosome Y.  You can omit other chromosomes simply by adding them to the list, i.e.
+<b>-o "1 2 3"</b> would omit chromosomes 1, 2 and 3 from the analysis.
+<li> <b>Argument 1:</b> The length of the sequenced read that was in the anchor fragment.
+            This includes the length of the 4C primer that you used as well
+            as any additional basepairs that were sequenced prior to the 3C or
+	    4C cut sites.  In this case, the value 18 was inferred from the
+	    fact that the reads were 76 bp long, but only 58 bp were aligned.
+
+<li><b>Argument 2:</b> The maximum number of bp submitted for sequencing after the size
+	    selection step in 4C.
+
+<li><b>Argument 3:</b> The minimum number of bp submitted for sequencing.
+
+<li><b>Argument 4:</b> The BAM file.
+
+<li><b>Argument 5:</b> A file with locations of the 3C restriction enzyme.  
+Note, before
+            generating one of these files on your own, make sure there isn't
+            one already in the <code>mm9_re_sites</code> directory.
+            These were created
+            using the mm9 mouse sequence.  If you want to create files for
+            hg19 or another genome, you can use <code>motifFinder.pl</code>,
+            which is provided as part of the fourSig suite of programs. Type
+            <code>motifFinder.pl -h</code> to learn how to use it.
+
+<li><b>Argument 6:</b> A file with locations of the 4C restriction enzyme.
+
+<li><b>Argument 7:</b> A file with locations of the linearization restriction enzyme, or
+            <code>NONE</code>, if there was no linearization step in the 4C protocol.
+</ul>
+<p>
+<code>bamToReTab.pl</code> pumps its output to standard out 
+(<code>STDOUT</code>), 
+so make sure you direct it to a file (a seen in the examples above with the 
+<code>></code>
+character).
+
+<p>
+If you data is in Bowtie format, just use <code>bowtieToReTab.pl</code>.  
+It runs the same way.
+
+
+<li><a name="analysis"><b>Analysis</b>
+<p> Start up R. 
+(<a href="http://www.r-project.org/">Download R</a> if you don't already have
+it installed.)
+
+<pre><code class="r">
+shell$ R
+</pre></code>
+
+<p>
+Or, if you prefer <a href="http://www.rstudio.com/">RStudio</a>, 
+you can use that.
+
+<p>
+Now load in the <b>fourSig</b> analysis suite:
+
+<pre><code class="r">
+> source("fourSig.R")
+</pre></code>
+
+<p><b>NOTE:</b> 
+In the examples below we are only using 100 iterations so that you can
+relatively quickly get an idea of how the program works.  For your own
+research, consider increasing the number of iterations to 1,000.
+
+<p>
+First, let's set the window size to 1, so that we are analyzing the individual
+fragments.
+
+<pre><code class="r">
+> fl.sig.w1 <- fourSig(filename="Beta-major-prom-FL.tab", chr=7, cis.only=TRUE, window.size=1, iterations=100, fdr=0.01, fdr.prob=0.05)
+</pre></code>
+
+<p>
+<b>fourSig</b> takes a handful of arguments.  Here is an explanation of the ones you
+see here, plus some more....
+
+<p>
+<table>
+<tr>
+<td class="args"><b>filename</b></td><td>The name of a TAB file you created earlier.</td>
+</tr>
+<tr>
+<td class="args"><b>chr</b></td><td>The name of the cromosome that the viewpoint is on.</td>
+</tr>
+<tr>
+<td class="args"><b>cis.only</b></td><td><code>[TRUE | FALSE]</code> (Default =<code>FALSE</code>) If <code>TRUE</code> only generate stats for CIS interactions.
+</td>
+</tr>
+<tr>
+<td class="args"><b>window.size</b></td><td>The number of 3C fragments allowed in the windows.</td>
+</tr>
+<tr>
+<td class="args"><b>iterations</b></td><td>The number of random shuffles used to generate a 
+distribution of signifcance cut-offs required to achieve a given FDR.</td>
+</tr>
+<tr>
+<td class="args"><b>fdr</b></td><td>The FDR used define the cut-offs.</td>
+</tr>
+<tr>
+<td class="args"><b>fdr.prob</b></td><td>The percentage of iterations that had a cut-off larger 
+than the final threshold of significance.</td>
+</tr>
+</table>
+<p>
+... and these are extra options....
+<p>
+<table>
+<tr>
+<td class="args"><b>trans.only</b></td><td><code>[TRUE | FALSE]</code> (Default = <code>FALSE</code>) If <code>TRUE</code> only generate stats for TRANS interactions.</td>
+</tr>
+<tr>
+<td class="args"><b>mask.start</b></td><td> (Default = <code>NULL</code>) Defines the start point for a region you want to mask out.  NOTE: We are not masking out the veiw point because this
+is the region that we are primarily interested in. However, you may find that
+your own analysis requires you to mask out the view point.
+If your intial analysis
+provides unsatisfying results, 
+mask out the view point and re-run the analysis.</td>
+</tr>
+<tr>
+<td class="args"><b>mask.end</b></td><td> (Default = <code>NULL</code>) Defines the end point for a region you want to mask out.</td>
+</tr>
+<tr>
+<td class="args"><b>invert.mask</b></td><td><code>[TRUE | FALSE]</code>
+             (Default = <code>FALSE</code>).  When set to <code>FALSE</code>,
+the region between <code>mask.start</code> and <code>mask.end</code> is
+masked out.  When set to <code>TRUE</code> the regions outside of the area 
+defined by <code>mask.start</code> and <code>mask.end</code> are masked out.</td>
+</tr>
+<tr>
+<td class="args"><b>out.file</b></td><td>Use this to specify a filename you want the output to be written to.</td>
+</tr>
+<tr>
+<td class="args"><b>only.mappable</b></td><td><code>[TRUE | FALSE ]</code>
+    (Default = <code>TRUE</code>).  This option determines whether or not
+    to use only the mappable fragments in the analysis, or all of the
+    fragments, regardless of mappability.
+</td>
+</tr>
+</table>
+<p>
+<b>fourSig</b> returns the interacting domains in a dataframe with columns
+for chromosome number (chr), domain start (start), domain end (end) and 
+significance category (category).  Here are the first 6 rows of results 
+(see below for an explanation for what the significance categories 
+correspond to):
+<pre><code class="r">
+> head(fl.sig.w1)
+  chr   start     end category
+1   7 3146334 3146334        3
+2   7 3610775 3610775        3
+3   7 4456451 4456451        3
+4   7 4566788 4566788        3
+5   7 4670113 4670113        3
+6   7 4689088 4689088        3
+</pre></code>
+<p>
+<b>The significance categories explained:</b> Although all categories (1 through 3) represent statistically significant windows, we rank them based on additional criteria to give users a sense of what’s going on. Are there multiple fragments in the window with lots of reads? Or is only one fragment within the window doing all the work to make it significant?
+
+<ul>
+<li>
+<b>Category 1 -</b> This means that there were multiple fragments within the window that had a statistically significant number of reads mapping to them. In practical terms, if you are going to validate with FISH or 3C, start with the “category 1” regions. With a window of 100, this may mean that there are multiple binding sites within the window, or it could mean that there is a single binding site that spills over in to neighboring fragments because of incomplete digestions. You can tell by looking at the “tab” file that you created.
+<p>
+<li><b>Category 2 -</b> If you replace the fragment with the most reads in the window with the average of the remaining fragments, the window is still significant.
+<p>
+<li><b>Category 3 -</b> This means that the only way for a window to contain a statistically significant number of reads is to include all of the reads on the fragment with the most of them. If you remove the one fragment with the most reads, the window becomes insignificant, and if replace that fragment with the average, it’s still insignificant. NOTE - based solely on intuition, category 3 windows are the ones we have the least confidence in and we feel might require the largest sample size to validate with FISH or 3C. However, it could be that you have a very strong interaction that is just very narrow and there were not many incomplete digestions. In this case - look at the read counts within that window (in the tab file). If you see a single one with tons of reads, that might be a good hit. On the other hand, it might also be a repetitive region - so be sure to check before you commit a lot of resources to validation!
+</ul>
+<p>
+<li><B>Graphing the results in R</b>
+<p>
+First, figure out how many reads are in each window.  This step allows you to
+display the data the way <b>fourSig</b> saw it, but it can also let you visually
+inspect other window resolutions before commiting to a full analysis.
+
+<pre><code class="r">
+> fl.w1 = readsToWindows(file="Beta-major-prom-FL.tab", chr=7, window.size=1, only.mappable=FALSE, mask.start=110975750, mask.end=110988565)
+</pre></code>
+
+<p><b>NOTE:</b> Here we set <code>only.mappable</code> to FALSE because we want to draw all of the fragments across the chromosome.
+
+<p><b>NOTE:</b> The example here is for <b>CIS interactions</b> . If you want to graph
+<b>TRANS interactions</b> then you need to set <code>chr</code> to <code>"all"</code> (include the quotes) and exclude <code>mask.start</code> and
+<code>mask.end</code> or set them to <code>NULL</code>.
+
+<p>
+Now graph it!
+
+<p>
+<pre><code class="r">
+> plotReads(fl.w1, fl.sig.w1, x.start=110940000, x.end=111040000, connect.points=TRUE, y.max=8500, mask.start=110975750, mask.end=110988565, draw.reads.first=TRUE)
+</pre></code>
+<p>
+And that command also has a lot of arguments....
+
+<p>The first two should be self explanatory (the read counts per window, and the
+results from the <b>fourSig</b> analysis).
+
+<p>
+<table>
+<tr>
+<td class="args">
+<b>use.log</b></td>
+<td><code>[TRUE | FALSE]</code> (Default = <code>FALSE</code>) Scale the y-axis with log10.</td>
+</tr>
+<tr>
+<td align="right"  valign="top">
+<b>x.start, x.end</b></td>
+<td>Define the region we want to look at.  Leave these out if you
+want to look at the entire chromosome.</td>
+</tr>
+<tr>
+<td align="right"  valign="top"><b>connect.points</b></td>
+<td><code>[TRUE | FALSE]</code> (Default = <code>FALSE</code>) This effects how the window counts will be
+displayed.
+</td>
+</tr>
+<tr>
+<td align="right"  valign="top"><b>y.max</b></td><td> 
+This is the maximum value you want on the y-axis.  It's useful if you
+       want to draw multiple graphs that all have the same y-axis.  Leave it
+       off otherwise.
+</td>
+
+</tr>
+<tr>
+<td class="args">
+<b>draw.reads.first</b>
+</td><td><code>[TRUE | FALSE]</code> (Default = <code>TRUE</code>) 
+This tells the program to draw the window counts
+       before it draws the significance regions.  Otherwise it draws the
+       significance regions first, and the read counts on top.  Change this
+       according to how things look to you.  Sometimes things look better 
+       one way, sometimes they look better the other.
+</td>
+</tr>
+<tr>
+<td class="args">
+<b>show.fragments</b></td>
+<td><code>[TRUE | FALSE]</code> (Default = <code>TRUE</code>) This displays a
+map of the 3C fragments under the graph.  This is useful for graphs that
+are zoomed into a particular region.  However, you may want to turn this
+feature off when looking at an entire chromosome.
+</td>
+</tr>
+<tr>
+<td class="args"><b>mask.start</b></td><td> (Default = <code>NULL</code>) Defines the start point for a region you want to mask out.  NOTE: Here we are masking out the view point fragment
+because we are not interested what this fragment looks like.</td>
+</tr>
+<tr>
+<td class="args"><b>mask.end</b></td><td> (Default = <code>NULL</code>) Defines the end point for a region you want to mask out.</td>
+</tr>
+</table>
+<p>
+Now save the results as a PDF:
+<pre><code class="r">
+> pdf(file="fl_results.pdf", width=8, height=4)
+> plotReads(fl.w1, fl.sig.w1, x.start=110940000, x.end=111040000, connect.points=TRUE, y.max=8500, mask.start=110975750, mask.end=110988565, draw.reads.first=TRUE)
+> dev.off()
+</pre></code>
+<p>
+<center>
+<img src="fl_results.png">
+</center>
+<p>
+<li><B>Graphing the results in the UCSC Genome Browser</b>
+<p>
+Just like graphing the results in R, we first need to figure out how many
+reads are in each window. If you already did this step, you can skip it,
+otherwise, here's the command (see the "Graphing the Results in R" section 
+for more details in how this command works):
+
+<pre><code class="r">
+> fl.w1 = readsToWindows(file="Beta-major-prom-FL.tab", chr=7, window.size=1, only.mappable=FALSE, mask.start=110975750, mask.end=110988565)
+</pre></code>
+
+<p><b>NOTE:</b> The example here is for <b>CIS interactions</b> . If you want to graph
+<b>TRANS interactions</b> then you need to set <code>chr</code> to <code>"all"</code> (include the quotes) and exclude <code>mask.start</code> and
+<code>mask.end</code> or set them to <code>NULL</code>.
+
+Now save the windowed reads to a bedGraph file, which you can upload to the
+UCSC Genome Browser:
+
+<pre><code class="r">
+> saveWindowsToBedGraph(window.data=fl.w1, filename="fl_reads.bedGraph", trackname="fl_reads")
+</pre></code>
+The arguments for <code>saveWindowsToBedGraph()</code> are defined as follows:
+<p>
+<table>
+<tr>
+<td class="args"><b>window.data</b></td><td>Set this to the output of <code>readsToWindows()</code>.</td>
+</tr>
+<tr>
+<td class="args"><b>filename</b></td><td>The name of the new bedGraph file that you want to create.</td>
+</tr>
+<tr>
+<td class="args"><b>trackname</b></td><td>(optional)The track name that will be
+displayed in the UCSC genome browser.</td>
+</tr>
+</table>
+<p>
+Now we need to save the output from <code>fourSig()</code> as a BED file that
+will show were the reads were significantly enriched.
+
+<pre><code class="r">
+> saveSigAsBed(sig.data=fl.sig.w1, window.data=fl.w1, filename="sig_interactions.bed", trackname="sig_interactions", mask.start=110975750, mask.end=110988565)
+</pre></code>
+The arguments for <code>saveSigAsBed()</code> are as follows:
+<p>
+<table>
+<tr>
+<td class="args"><b>sig.data</b></td><td>Set this to the output of <code>fourSig()</code>.</td>
+</tr>
+<tr>
+<td class="args"><b>window.data</b></td><td>Set this to the output of <code>readsToWindows()</code>.</td>
+</tr>
+<tr>
+<td class="args"><b>filename</b></td><td>The name of the new bed file that you want to create.</td>
+</tr>
+<tr>
+<td class="args"><b>trackname</b></td><td>(optional)The track name that will be
+displayed in the UCSC genome browser.</td>
+</tr>
+<td class="args"><b>mask.start</b></td><td>This is the same as for the other functions.</td>
+</tr>
+<td class="args"><b>mask.end</b></td><td>This is the same as for the other functions.</td>
+</tr>
+</table>
+<p>
+Once you have created the bedGraph and BED files, you can upload them to the
+UCSC genome browser.
+<p>
+<p>
+<center>
+<img src="fl_results_ucsc_genome.png" width="700">
+</center>
+<p>
+<li>
+<b>Now do the same things for the fetal brain (FB) data:</b>
+<p>
+<ol>
+<li>Unpack the pre-formatted data (or follow the steps above to format the 
+BAM data)
+<p>
+<pre><code class="r">
+shell$ gunzip Beta-major-prom-FB.tab.gz
+</pre></code>
+<li>Analyze the data
+<p>
+<pre><code class="r">
+> fb.sig.w1 <- fourSig(filename="Beta-major-prom-FB.tab", chr=7, cis.only=TRUE, window.size=1, iterations=100, fdr=0.01, fdr.prob=0.05)
+</pre></code>
+<li>Draw the figure
+<p>
+<pre><code class="r">
+> fb.w1 = readsToWindows(file="Beta-major-prom-FB.tab", chr=7, window.size=1, only.mappable=FALSE, mask.start=110975750, mask.end=110988565)
+> plotReads(fb.w1, fb.sig.w1, x.start=110940000, x.end=111040000, connect.points=TRUE, y.max=8500, mask.start=110975750, mask.end=110988565, draw.reads.first=TRUE)
+</pre></code>
+<li>Save the figure
+<p>
+<pre><code class="r">
+> pdf(file="fb_results.pdf", width=8, height=4)
+> plotReads(fb.w1, fb.sig.w1, x.start=110940000, x.end=111040000, connect.points=TRUE, y.max=8500, mask.start=110975750, mask.end=110988565, draw.reads.first=TRUE)
+> dev.off()
+</pre></code>
+</ol>
+<p>
+<center>
+<img src="fb_results.png">
+</center>
+
+</ol>
+
+</body>
+
+</html>
