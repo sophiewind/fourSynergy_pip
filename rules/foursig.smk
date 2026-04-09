@@ -24,9 +24,9 @@ rule motif_finder:
          if [[ ! -f "./{params.motif1}" ]]; then
             echo "./{params.motif1} not found. Create motif. This can take some time...\n"
             if [[ {params.organism} == "hg"* ]]; then
-	        ./scripts/fourSig/motifFinder.pl -H "{params.res2}" "{input.ref}" > "./{params.motif1}"
+	        perl ./scripts/fourSig/motifFinder.pl -H "{params.res2}" "{input.ref}" > "./{params.motif1}"
 	    elif [[ {params.organism} == "mm10"* ]]; then
-	        ./scripts/fourSig/motifFinder.pl -M "{params.res2}" "{input.ref}" > "./{params.motif1}"
+	        perl ./scripts/fourSig/motifFinder.pl -M "{params.res2}" "{input.ref}" > "./{params.motif1}"
 	    else
 	        "Not a valid org"  #TODO rm
 	    fi
@@ -39,9 +39,9 @@ rule motif_finder:
            echo "./{params.motif2} not found. Create motif. This can take some time..."
            mkdir -p $(dirname {params.motif2})
            if [[ {params.organism} == "hg"* ]]; then
-               (./scripts/fourSig/motifFinder.pl -H "{params.res2}" "{input.ref}" > "./{params.motif2}")  
+               (perl ./scripts/fourSig/motifFinder.pl -H "{params.res2}" "{input.ref}" > "./{params.motif2}")  
            elif [[ {params.organism} == "mm10"* ]]; then
-               (./scripts/fourSig/motifFinder.pl -M "{params.res2}" "{input.ref}" > "./{params.motif2}") 
+               (perl ./scripts/fourSig/motifFinder.pl -M "{params.res2}" "{input.ref}" > "./{params.motif2}") 
            else
                echo "Not a valid org"
            fi
@@ -74,7 +74,7 @@ rule bam_to_re_tab:
         if [[ "{params.organism}" == "hg"* ]]; then
             echo "{params.organism} human"
             (
-               ./scripts/fourSig/bamToReTab.pl -H -o "Y" 18 700 20 "{input.bam}" "./{params.motif1}" "./{params.motif2}" NONE > "{output}"
+               perl ./scripts/fourSig/bamToReTab.pl -H -o "Y" 18 700 20 "{input.bam}" "./{params.motif1}" "./{params.motif2}" NONE > "{output}"
             ) || touch {output}
             if [ $? -ne 0 ]; then
                 echo "Error creating fourSig tab file for human" >&2
@@ -82,7 +82,7 @@ rule bam_to_re_tab:
         elif [[ "{params.organism}" == "mm"* ]]; then
             echo "{params.organism} m"
             (
-               ./scripts/fourSig/bamToReTab.pl -M -o "Y" 18 700 20 "{input.bam}" "./{params.motif1}" "./{params.motif2}" NONE > "{output}"
+               perl ./scripts/fourSig/bamToReTab.pl -M -o "Y" 18 700 20 "{input.bam}" "./{params.motif1}" "./{params.motif2}" NONE > "{output}"
             ) || touch {output}
             if [ $? -ne 0 ]; then
                 echo "Error creating fourSig tab file for mouse" >&2
@@ -91,7 +91,7 @@ rule bam_to_re_tab:
             echo "No valid organism specified"
             exit 1
         fi
-        if [! -f "{output}" ]; then
+        if [ ! -f "{output}" ]; then
             echo "Output file not generated, exiting..." >&2
             exit 1
         fi
