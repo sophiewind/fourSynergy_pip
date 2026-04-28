@@ -1,8 +1,3 @@
----
-title: "FourSynergy"
-bibliography: tools.bib
-output: github_document
----
 
 # fourSynergy_pip: Ensemble-based 4C-seq analysis preprocessing pipeline
 
