@@ -58,6 +58,8 @@ If you want to run the pipeline on your own data, you can use our Shiny app to g
 
 Move the resulting `info.yaml` into the `Datasets` folder.
 
+An exemplary config file can be found here: https://github.com/sophiewind/fourSynergy/blob/main/inst/extdata/Datasets/Demo/info.yaml
+
 ## Getting started - docker mode
 
 Then build the docker image:
@@ -76,20 +78,20 @@ Start the pipeline with the following command. Adjust:
 
 -   the reference genome path (before `:/ref`)
 
--   the dataset path / config file path (`info.yaml`)
+-   the dataset path / config file path (`info.yaml`) (on test data this should be fine)
 
-The reference genome must be indexed (see BWA link above).
+The reference genome must be indexed (<https://bio-bwa.sourceforge.net/bwa.shtml>).
 
 ```         
 docker run --rm \
   -v "$(pwd)":/workflow \
-  -v /media/home2/share/Genomes/Mus_musculus.GRCm38/bwa_0.7.10/:/ref \
+  -v /media/home2/share/Genomes/Mus_musculus.GRCm38/bwa_0.7.10/:/ref \  # adjust
   -w /workflow \
   swind.foursynergy_pip:latest \
   snakemake -s Snakefile --cores 30 --configfile ./Datasets/m4+4_DC1/info.yaml --use-conda --resources mem_mb=16000 -j 4
 ```
 
-You can adjust resource usage via the Snakemake CLI: <https://snakemake.readthedocs.io/en/stable/executing/cli.html>
+You can adjust resource usage and many more via the Snakemake CLI: <https://snakemake.readthedocs.io/en/stable/executing/cli.html>
 
 ## Getting started - conda mode
 
@@ -159,6 +161,7 @@ fourSyngery offers a variety of analyses:
 # Part IIb - R shiny analysis
 
 To analyze the data via our R Shiny UI you just need to start the Shiny App `app.R`.
+A user guide can be found here: TODO
 
 ## Documentation
 
