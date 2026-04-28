@@ -93,6 +93,8 @@ docker run --rm \
 
 You can adjust resource usage and many more via the Snakemake CLI: <https://snakemake.readthedocs.io/en/stable/executing/cli.html>
 
+If you want to continue with standard R analysis jump to "Part IIa" if you want to use the Shiny app jump to "Part IIb". 
+
 ## Getting started - conda mode
 
 Create a snkameka conda env and activate it:
@@ -123,6 +125,9 @@ snakemake  -s Snakefile --cores 30 --configfile ./Datasets/m4+4_DC1/info.yaml --
 ```
 
 You can add the `-n` flag for a dry run to check whether all files are created correctly.
+
+If you want to continue with standard R analysis jump to "Part IIa" if you want to use the Shiny app jump to "Part IIb". 
+
 
 # Part IIa - R analysis
 
@@ -162,6 +167,23 @@ fourSyngery offers a variety of analyses:
 
 To analyze the data via our R Shiny UI you just need to start the Shiny App `app.R`.
 A user guide can be found in this repo: `user_guide_shiny.zip`.
+
+### docker mode 
+Build the Shiny app docker image:
+```
+docker build -t swind.foursynergy_shiny -f ./Dockerfile.shiny .
+```
+
+Run the Shiny app:
+```
+docker run --rm   -v "$(pwd)":/workflow -w /workflow -p 8000:8000 swind.foursynergy_shiny
+```
+
+Access the Shiny app via you browser: `http://localhost:8000/`
+
+### conda mode
+
+
 
 ## Documentation
 

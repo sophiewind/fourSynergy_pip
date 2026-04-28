@@ -1,0 +1,35 @@
+FROM rocker/shiny:latest
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    sudo \
+    libcurl4-gnutls-dev \
+    libcairo2-dev \
+    libxt-dev \
+    libssl-dev \
+    libssh2-1-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+
+WORKDIR /home/app
+COPY ./*.R .
+COPY ./utils.R .
+COPY ./www/ ./www/
+
+RUN ls -la
+
+RUN Rscript -e 'install.packages("pak")' #&& 
+RUN Rscript -e 'pak::pak("devtools")' #&& 
+RUN Rscript -e 'pak::pak("renv")' #&& 
+
+
+#RUN Rscript -e 'devtools::install_github("sophiewind/fourSynergy")'
+RUN Rscript -e 'pak::pkg_install("sophiewind/fourSynergy")'
+
+
+RUN cd /home/app && Rscript -e 'pak::pak(unique(renv::dependencies(".")$Package))' #&& 
+
+RUN Rscript -e 'pak::pak_cleanup(package_cache = TRUE, metadata_cache = TRUE, pak_lib = TRUE, force = TRUE)' #&&
+
+EXPOSE 8000
+CMD ["R", "-e", "shiny::runApp('/home/app', host = '0.0.0.0', port = 8000)"]
+
+

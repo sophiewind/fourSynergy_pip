@@ -14,7 +14,6 @@ library(fourSynergy)
 library(bslib)
 library(TxDb.Mmusculus.UCSC.mm10.knownGene)
 library(TxDb.Hsapiens.UCSC.hg19.knownGene)
-library(biomaRt)
 library(org.Mm.eg.db)
 library(org.Hs.eg.db)
 library(cowplot)
@@ -56,6 +55,7 @@ mytheme <- create_theme(
 # Definition der UI
 ui <- shinyUI(
     dashboardPage(
+        title = "fourSynergy",
         dashboardHeader(
             title = tags$div(
                 tags$img(src = "logo_wide_2.png",
@@ -112,7 +112,7 @@ ui <- shinyUI(
                                    bsPopover(id = "pa",
                                              title = "Config file",
                                              content = paste0(
-                                                 "You can find more information to the config file info.yaml here: TODOlink ."
+                                                 "You can find more information to the config file info.yaml here: https://github.com/sophiewind/fourSynergy_pip"
                                              ),
                                              placement = "right",
                                              trigger = "hover",
@@ -562,27 +562,30 @@ ui <- shinyUI(
                             ))),
                 tabItem("pipeline",
                         #fluidRow(
-                        h2(icon("timeline"), "Pipeline"),
+                         h2(icon("timeline"), "Pipeline"),
                         h3("Base tools used:"),
                         "r3Cseq (https://doi.org/10.1093/nar/gkt373), fourSig (https://doi.org/10.1093/nar/gku156), peakC (https://doi.org/10.1093/nar/gky443) and R.4Cker (https://doi.org/10.1371/journal.pcbi.1004780)",
                         "The pipeline is written in snakemake. You can find comprehensive documentation here: https://snakemake.github.io/",
                         hr(),
                         h2(icon("comments"), "Support"),
-                        "For questions, feature requests and errors, so not hestitate to contact Sophie Wind (sophie.wind@uni-muenster.de).\n",
+                        "If you have questions, feature requests or encounter any bugs, please contact Sophie Wind (sophie.wind@uni-muenster.de).\n",
                         hr(),
                         h2(icon("code"), "Code availibilty"),
-                        "You can find the Bioconductor R package fourSynergy here: TODO <br/>",
-                        "The fourSynergy R package is available here: TODO<br/>",
-                        "The fourSynergy snakemake pipeline can be found here: TODO",
+                        "You can find the Bioconductor R package fourSynergy here: https://bioconductor.org/packages/fourSynergy <br/>",
+                        "The fourSynergy R package is available here: https://github.com/sophiewind/fourSynergy <br/>",
+                        "The fourSynergy snakemake pipeline can be found here: https://github.com/sophiewind/fourSynergy_pip",
                         hr(),
                         h2(icon("file-lines"), "Documentation"),
-                        "A comprehensive description of fourSynergy is in the Vignette (TODO).<br/>",
-                        "The fourSynergy publication can be found here: TODO",
+                        "A comprehensive description of fourSynergy is in the Vignette (https://bioconductor.org/packages/devel/bioc/vignettes/fourSynergy/inst/doc/fourSynergy_vignette.html).<br/>",
+                        "The fourSynergy publication can be found here: https://github.com/sophiewind/fourSynergy_pip",
                         hr(),
                         h2(icon("bug"), "Bugs"),
                         "Bugs can be reported here: https://github.com/sophiewind/fourSynergy_pip/issues",
-                        hr()
-
+                        hr(),
+                        h2(icon("balance-scale"), "Legal notice"),
+                        p(tags$a(href = "https://www.medizin.uni-muenster.de/imi/impressum.html",
+                                "Imprint / Legal notice (University of Münster)",
+                                target = "_blank", rel = "noopener"))
                 )
             )
         )
@@ -834,11 +837,11 @@ server <- function(input, output, session) {
 
         # Check if all files there
         if (!is.null(config()$control)){
-            req_align <- paste0(rep(paste0(c(config()$condition, config()$control), "_",  # TODO
+            req_align <- paste0(rep(paste0(c(config()$condition, config()$control), "_", 
                                            rep(seq(1, max(config()$conditionRep)), each = 2)), each = 3),
                                 c("_sorted.bam","_sorted.bam.bai", "_sorted.bedGraph"))
         } else {
-            req_align <- paste0(rep(paste0(paste0(config()$condition, "_"), seq(1,max(config()$conditionRep))), each = 3),  # TODO seq
+            req_align <- paste0(rep(paste0(paste0(config()$condition, "_"), seq(1,max(config()$conditionRep))), each = 3),  
                                 c("_sorted.bam","_sorted.bam.bai", "_sorted.bedGraph"))
         }
 
@@ -1116,7 +1119,6 @@ server <- function(input, output, session) {
                               )))
     }, server = FALSE)
 
-    # TODO change order, etc. -> see multiqc
     output$seq_plot <- renderPlot({
         #browser()
         p <- read.delim(paste0(multiqc_paths(), "/fastqc_sequence_counts_plot.txt")) %>%
