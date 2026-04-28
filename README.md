@@ -161,7 +161,7 @@ fourSyngery offers a variety of analyses:
 # Part IIb - R shiny analysis
 
 To analyze the data via our R Shiny UI you just need to start the Shiny App `app.R`.
-A user guide can be found here: TODO
+A user guide can be found in this repo: `user_guide_shiny.zip`.
 
 ## Documentation
 
