@@ -24,7 +24,6 @@ RUN Rscript -e 'pak::pak("renv")' #&&
 #RUN Rscript -e 'devtools::install_github("sophiewind/fourSynergy")'
 RUN Rscript -e 'pak::pkg_install("sophiewind/fourSynergy")'
 
-
 RUN cd /home/app && Rscript -e 'pak::pak(unique(renv::dependencies(".")$Package))' #&& 
 
 RUN Rscript -e 'pak::pak_cleanup(package_cache = TRUE, metadata_cache = TRUE, pak_lib = TRUE, force = TRUE)' #&&

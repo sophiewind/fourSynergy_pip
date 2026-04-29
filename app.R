@@ -29,6 +29,7 @@ library(yaml)
 library(clusterProfiler)
 source('.///utils.R')
 library(fresh)
+library(shinybusy)
 
 # ui --------------------------------------------------------------------------
 # Create the theme
@@ -76,23 +77,52 @@ ui <- shinyUI(
                          icon = icon("circle-info")))),
 
         dashboardBody(
+            add_busy_spinner(spin = "fading-circle", position="bottom-left",
+                             margins = c(0, 30), height="100px", width="100px", color = '#2D973F'),
             use_theme(mytheme),
             useShinyjs(),
-            tags$style(HTML("
-                 .value-box-title {
-                    font-size: 16px!important;
-                    line-height: 1.2!important;
-                  }
-                 .irs-bar {background: #2D973F!important;}
-                 .irs-handle {background: #2D973F; border: 1px solid #2D973F}
-                 .irs-bar-edge {background: #2D973F}
-                 .irs-single {background: #2D973F}
-                 .irs-min,.irs-max {background: #2D973F}
-                 .irs-tooltip {background-color: #007bff; color: white}
-                 .irs-grid-text { font-size: 10px!important; }
-                  [class*='js-irs-'].irs-single {background: #2D973F}
-                  .progress-bar{background-color:#2D973F;}
-                ")),
+                  tags$style(HTML("
+                    .value-box-title {
+                        font-size: 16px !important;
+                        line-height: 1.2 !important;
+                    }
+
+                    .irs-bar,
+                    .irs-bar-edge,
+                    .irs-single,
+                    .irs-min,
+                    .irs-max,
+                    [class*='js-irs-'].irs-single,
+                    .progress-bar {
+                        background: #2D973F !important;
+                        background-color: #2D973F !important;
+                    }
+
+                    .irs-handle {
+                        background: #2D973F !important;
+                        border: 1px solid #2D973F !important;
+                    }
+
+                    .irs-tooltip {
+                        background-color: #007bff !important;
+                        color: white !important;
+                    }
+
+                    .irs-grid-text {
+                        font-size: 10px !important;
+                    }
+
+                    .btn-default:hover {
+                        background-color: #A4FFB3 !important;
+                    }
+
+                    .strain::before,
+                    .strain::after {
+                        content: '';
+                        display: block;
+                        background-color: #2D973F !important;
+                    }
+                    ")),
             tags$style(HTML(".js-irs-0 .irs-single {background: #2D973F}")),
             tags$style(HTML(".js-irs-1 .irs-single {background: #2D973F}")),
             tags$style(HTML(".js-irs-2 .irs-single {background: #2D973F}")),
