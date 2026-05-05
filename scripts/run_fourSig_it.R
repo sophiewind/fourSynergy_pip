@@ -46,7 +46,7 @@ for (n in c(1,3,5,11)){
 
   # Plot results ---------------------------------------------------------------
   sample <- gsub('.tab', '', basename(tab))
-  message(paste0(OUT.PATH, sample, '_fourSigit_', n, '.rds'))
+  message(paste0(OUT.PATH, sample, '_fourSig_', n, '.rds'))
   pdf(paste0(OUT.PATH, sample, '_plotit_', n, '.pdf'))
   try(plotReads(window.data = data.w,
                 sig.data = data,
@@ -60,8 +60,8 @@ for (n in c(1,3,5,11)){
 
   # Save rds -------------------------------------------------------------------
 
-  saveRDS(data, paste0(OUT.PATH, sample, '_fourSigit_', n, '.rds'))
-  saveRDS(data.w, paste0(OUT.PATH, sample, '_w_fourSigit_', n, '.rds'))
+  saveRDS(data, paste0(OUT.PATH, sample, '_fourSig_', n, '.rds'))
+  saveRDS(data.w, paste0(OUT.PATH, sample, '_w_fourSig_', n, '.rds'))
 
 
 }

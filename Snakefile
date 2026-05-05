@@ -28,7 +28,7 @@ rule all:
         outputdir + '/r3cseq/r3cseq_w_done.txt',
         outputdir + '/peakC/peakC_FDR_done.txt',
         outputdir + "/multiqc_report.html",
-        expand('results/{author}/fourSig/{cond}_{rep}_fourSigit_finished.txt', cond=conditionsclean, rep=config['conditionRep'], author=config['author']),
+        expand('results/{author}/fourSig/{cond}_{rep}_fourSig_finished.txt', cond=conditionsclean, rep=config['conditionRep'], author=config['author']),
         outputdir + "/fourSynergy_postprocessing.html",
         outputdir + "/shiny_in/.done"
 

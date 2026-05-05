@@ -102,7 +102,7 @@ rule foursig_it:
     input:
         tab = rules.bam_to_re_tab.output
     output:
-         outputdir + '/fourSig/{sample}_fourSigit_finished.txt'
+         outputdir + '/fourSig/{sample}_fourSig_finished.txt'
     conda: 
         "../envs/foursig.yml"
     log:

@@ -138,11 +138,11 @@ if (!is.null(config$control)){
 # Read fourSig
 tryCatch({
     for (w in list.files(paste0(res.path, 'fourSig/'),
-                         '*_w_fourSigit_\\d+.rds',
+                         '*_w_fourSig_\\d+.rds',
                          full.names = T)) {
-        window <- str_extract(w, "(?<=fourSigit_)\\d+")
-        sample <- gsub('_w_fourSigit_\\d+.rds', '', basename(w))
-        assign(paste0('rds.foursigit_', window, '.', sample), 
+        window <- str_extract(w, "(?<=fourSig_)\\d+")
+        sample <- gsub('_w_fourSig_\\d+.rds', '', basename(w))
+        assign(paste0('rds.foursig_', window, '.', sample), 
                readRDS(gsub('_w', '', w)))
     }
 }, error = function(e){
@@ -393,11 +393,11 @@ plotConsens.grl(consens.df = list.sia.all[grepl('(single|rep).r3c_*', names(list
 
 ```{r fourSig, echo=FALSE}
 # Iterate over foursig rds objects and bring them to sia format
-fs.samples <- paste0(rep(paste0("rds.foursigit_", c(1,3,5,11), ".", 
+fs.samples <- paste0(rep(paste0("rds.foursig_", c(1,3,5,11), ".", 
                     config$condition, "_"), each = max(config$conditionRep)), 
          config$conditionRep) 
     
-if (!is.null(config$control))fs.samples <- c(fs.samples, paste0(rep(paste0("rds.foursigit_", c(1,3,5,11), ".", 
+if (!is.null(config$control))fs.samples <- c(fs.samples, paste0(rep(paste0("rds.foursig_", c(1,3,5,11), ".", 
                   config$control, "_"), each = max(config$controlRep)), config$controlRep))
     
 try(for (f in fs.samples){ 
