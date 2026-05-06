@@ -45,3 +45,5 @@ RUN conda env create --prefix /conda-envs/563e2d751268aa0a2e85531d5194dea1 --fil
     conda env create --prefix /conda-envs/bc08dca7c2e76d55bb9aaea1e9539bec --file /conda-envs/bc08dca7c2e76d55bb9aaea1e9539bec/environment.yaml && \
     conda env create --prefix /conda-envs/a7a38bff03d28b4de3680e63be90b2b9 --file /conda-envs/a7a38bff03d28b4de3680e63be90b2b9/environment.yaml && \
     conda clean --all -y
+    
+RUN pip install --no-cache-dir snakemake
