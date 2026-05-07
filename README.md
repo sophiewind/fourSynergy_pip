@@ -83,12 +83,7 @@ Start the pipeline with the following command. Adjust:
 The reference genome must be indexed (<https://bio-bwa.sourceforge.net/bwa.shtml>).
 
 ```         
-docker run --rm \
-  -v "$(pwd)":/workflow \
-  -v /media/home2/share/Genomes/Mus_musculus.GRCm38/bwa_0.7.10/:/ref \  # adjust
-  -w /workflow \
-  swind.foursynergy_pip:latest \
-  snakemake -s Snakefile --cores 30 --configfile ./Datasets/m4+4_DC1/info.yaml --use-conda --resources mem_mb=16000 -j 4
+docker run -v "$(pwd)":/workflow  -v /media/home2/share/Genomes/Mus_musculus.GRCm38.p6/bwa.0.7.17/:/ref -w /workflow   swind.foursynergy_sm:latest   snakemake  -s Snakefile --cores 30 --configfile ./Datasets/m4+4_DC1/info.yaml --use-conda --resources mem_mb=16000 -j 4 -p
 ```
 
 You can adjust resource usage and many more via the Snakemake CLI: <https://snakemake.readthedocs.io/en/stable/executing/cli.html>
