@@ -19,8 +19,7 @@ rule copy_shiny:
         r4 = outputdir + "/r4cker/r4cker_done.txt",
         pc_FDR = outputdir + "/peakC/peakC_FDR_done.txt",
         r3c = outputdir + "/r3cseq/r3cseq_w_done.txt",
-
-        foursig = expand(outputdir + "/fourSig/{sample}_fourSigit_finished.txt", sample=SAMPLES)
+        foursig = expand(outputdir + "/fourSig/{sample}_fourSig_finished.txt", sample=SAMPLES)
     output:
         done = outputdir + "/shiny_in/.done"
     log:
